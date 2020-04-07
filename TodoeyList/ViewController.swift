@@ -7,11 +7,10 @@
 //
 
 import UIKit
-
 class ViewController: UITableViewController
 {
 
-    let itemArray=["Buy Some Eggs","Go to School","Get Some Milk"]
+    var itemArray=["Buy Some Eggs","Go to School","Get Some Milk"]
     
     override func viewDidLoad()
     {
@@ -42,4 +41,25 @@ class ViewController: UITableViewController
         }
         tableView.deselectRow(at: indexPath, animated: true)
      }
+    @IBAction func addItemButtonPress(_ sender: Any)
+    {
+        var textField = UITextField()
+        let alert=UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle:.alert)
+        let action = UIAlertAction(title: "Add item", style: .default)
+        {
+            (action) in
+            self.itemArray.append(textField.text!)
+            self.tableView.reloadData()
+         
+        }
+        alert.addTextField
+            {
+                (alertTextField) in
+                alertTextField.placeholder=" Create new item"
+                textField=alertTextField
+            }
+        alert.addAction(action)
+        present(alert,animated: true,completion: nil)
+        
+    }
 }
