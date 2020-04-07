@@ -11,7 +11,6 @@ import UIKit
 class ViewController: UITableViewController
 {
 
-    
     let itemArray=["Buy Some Eggs","Go to School","Get Some Milk"]
     
     override func viewDidLoad()
@@ -43,5 +42,4 @@ class ViewController: UITableViewController
         }
         tableView.deselectRow(at: indexPath, animated: true)
      }
-
 }
