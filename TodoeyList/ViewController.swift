@@ -9,12 +9,19 @@
 import UIKit
 class ViewController: UITableViewController
 {
+    let defualts=UserDefaults.standard
 
     var itemArray=["Buy Some Eggs","Go to School","Get Some Milk"]
     
     override func viewDidLoad()
     {
         super.viewDidLoad()
+        
+        
+        if let item=defualts.array(forKey: "ToDo")as? [String]
+        {
+            itemArray=item
+        }
     }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
     {
@@ -49,8 +56,9 @@ class ViewController: UITableViewController
         {
             (action) in
             self.itemArray.append(textField.text!)
+            self.defualts.set(self.itemArray, forKey: "ToDo")
             self.tableView.reloadData()
-         
+
         }
         alert.addTextField
             {
