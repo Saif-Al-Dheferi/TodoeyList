@@ -10,34 +10,27 @@ import UIKit
 
 class ViewController: UITableViewController
 {
-    let defualts=UserDefaults.standard
+    var dataFilePath=FileManager.default.urls(for:.documentDirectory, in: .userDomainMask).first?.appendingPathComponent("items.plist")
+   
     
     var itemArray=[Item]()
 
     //=========================================================================================
-    // MARK - ----------------------------First Load Method -----------------------------------
+    //MARK: - ----------------------------First Load Method -----------------------------------
     //=========================================================================================
     override func viewDidLoad()
     {
         super.viewDidLoad()
-        
-        let newItem=Item()
-        newItem.title="Go to home"
-        itemArray.append(newItem)
-        
-//        if let item=defualts.array(forKey: "ToDo")as? [String]
-//        {
-//            itemArray=item
-//        }
+         LoadItems()
     }
     //=========================================================================================
-    // MARK ----------------------------- Tableview Func --------------------------------------
+    //MARK:- ----------------------------- Tableview Func -------------------------------------
     //=========================================================================================
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
     {
         return itemArray.count
     }
-    //=========================================================================================
+    //============================= Setting a value to the cell method =========================
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
          let cell=tableView.dequeueReusableCell(withIdentifier: "ToDItemCell", for: indexPath)
@@ -45,26 +38,15 @@ class ViewController: UITableViewController
          cell.accessoryType = itemArray[indexPath.row].done == true ? .checkmark : .none
          return cell
     }
-   //=========================================================================================
+    //=============================  didSelectRow method  ======================================
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath)
     {
+        tableView.deselectRow(at: indexPath, animated: true)
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
-        if let cell = tableView.cellForRow(at: indexPath)
-        {
-            if cell.accessoryType == .checkmark
-            {
-               cell.accessoryType = .none
-            }
-            else
-            {
-               cell.accessoryType = .checkmark
-            }
-        }
-          tableView.reloadData()
-          tableView.deselectRow(at: indexPath, animated: true)
+        SaveItems()
      }
    //=========================================================================================
-   // MARK- -----------------------------ButtonClick -----------------------------------------
+   // MARK:- -----------------------------ButtonClick ----------------------------------------
    //=========================================================================================
     @IBAction func addItemButtonPress(_ sender: Any)
     {
@@ -73,12 +55,10 @@ class ViewController: UITableViewController
         let action = UIAlertAction(title: "Add item", style: .default)
         {
             (action) in
-            
               let newItem=Item()
               newItem.title=textField.text!
               self.itemArray.append(newItem)
-           
-//            self.defualts.set(self.itemArray, forKey: "ToDo")
+              self.SaveItems()
               self.tableView.reloadData()
         }
               alert.addTextField
@@ -90,5 +70,42 @@ class ViewController: UITableViewController
               alert.addAction(action)
               present(alert,animated: true,completion: nil)
     }
-    //=========================================================================================
+     //=========================================================================================
+    // MARK:- -----------------------Encoding Data into plist ----------------------------------
+    //==========================================================================================
+    
+    func SaveItems()
+    {
+        let encoder=PropertyListEncoder()
+        do
+        {
+            let data = try encoder.encode(itemArray)
+            print(data)
+            try data.write(to: dataFilePath!)
+        }
+        catch
+        {
+            print("some thing is wrong")
+        }
+        self.tableView.reloadData()
+    }
+    //==========================================================================================
+    // MARK: - -----------------------Decoding Data from plist ---------------------------------
+    //==========================================================================================
+    func LoadItems()
+    {
+        if  let data=try? Data(contentsOf: dataFilePath!)
+        {
+            
+            let decoder=PropertyListDecoder()
+            do
+            {
+                itemArray = try decoder.decode([Item].self, from: data)
+            }
+            catch
+            {
+                print("error")
+            }
+        }
+    }
 }
