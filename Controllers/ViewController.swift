@@ -7,21 +7,27 @@
 //
 
 import UIKit
+import CoreData
 
 class ViewController: UITableViewController
 {
+    let context=(UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     var dataFilePath=FileManager.default.urls(for:.documentDirectory, in: .userDomainMask).first?.appendingPathComponent("items.plist")
-   
-    
     var itemArray=[Item]()
-
+    var selectedCatego: Cate?
+    {
+        didSet
+        {
+            LoadItems()
+        }
+    }
     //=========================================================================================
     //MARK: - ----------------------------First Load Method -----------------------------------
     //=========================================================================================
     override func viewDidLoad()
     {
         super.viewDidLoad()
-         LoadItems()
+        LoadItems()
     }
     //=========================================================================================
     //MARK:- ----------------------------- Tableview Func -------------------------------------
@@ -43,6 +49,9 @@ class ViewController: UITableViewController
     {
         tableView.deselectRow(at: indexPath, animated: true)
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+       
         SaveItems()
      }
    //=========================================================================================
@@ -51,12 +60,15 @@ class ViewController: UITableViewController
     @IBAction func addItemButtonPress(_ sender: Any)
     {
         var textField = UITextField()
-        let alert=UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle:.alert)
-        let action = UIAlertAction(title: "Add item", style: .default)
+        //------------------------------------ Alert ------------------------------------------
+        let alert=UIAlertController(title:"ادخل الفقرة الجديدة", message: "", preferredStyle:.alert)
+        let action = UIAlertAction(title:"اضافة", style: .default)
         {
             (action) in
-              let newItem=Item()
+              let newItem=Item(context: self.context)
               newItem.title=textField.text!
+              newItem.done=false
+              newItem.parent=self.selectedCatego
               self.itemArray.append(newItem)
               self.SaveItems()
               self.tableView.reloadData()
@@ -64,11 +76,12 @@ class ViewController: UITableViewController
               alert.addTextField
                   {
                      (alertTextField) in
-                     alertTextField.placeholder=" Create new item"
+                     alertTextField.placeholder="اضافة عنصر جديد"
                      textField=alertTextField
                   }
               alert.addAction(action)
               present(alert,animated: true,completion: nil)
+        print(itemArray)
     }
      //=========================================================================================
     // MARK:- -----------------------Encoding Data into plist ----------------------------------
@@ -76,12 +89,9 @@ class ViewController: UITableViewController
     
     func SaveItems()
     {
-        let encoder=PropertyListEncoder()
         do
         {
-            let data = try encoder.encode(itemArray)
-            print(data)
-            try data.write(to: dataFilePath!)
+            try self.context.save()
         }
         catch
         {
@@ -92,20 +102,53 @@ class ViewController: UITableViewController
     //==========================================================================================
     // MARK: - -----------------------Decoding Data from plist ---------------------------------
     //==========================================================================================
-    func LoadItems()
+    func LoadItems(with request:NSFetchRequest<Item>=Item.fetchRequest(), predicate : NSPredicate? = nil)
     {
-        if  let data=try? Data(contentsOf: dataFilePath!)
+        let Categorypredicate = NSPredicate(format:"parent.name MATCHES %@", selectedCatego!.name!)
+        if let additionalPredicate = predicate
         {
-            
-            let decoder=PropertyListDecoder()
-            do
-            {
-                itemArray = try decoder.decode([Item].self, from: data)
-            }
-            catch
-            {
-                print("error")
-            }
+             request.predicate=NSCompoundPredicate(andPredicateWithSubpredicates: [Categorypredicate,additionalPredicate])
         }
+        else
+        {
+        request.predicate=Categorypredicate
+        }
+        do
+        {
+        itemArray=try context.fetch(request)
+        }
+        catch
+        {
+            print("error")
+        }
+
+    }
+ 
+}
+extension ViewController:UISearchBarDelegate
+  {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+               let request:NSFetchRequest<Item>=Item.fetchRequest()
+         request.predicate = NSPredicate(format: "title CONTAINS %@", searchBar.text!)
+        let titlepredicate=NSPredicate(format: "title CONTAINS %@", searchBar.text!)
+          request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+         if searchBar.text?.count==0
+          {
+           LoadItems(with: request)
+             DispatchQueue.main.async
+                 {
+                 searchBar.resignFirstResponder()
+                 }
+          }
+          else
+          {
+            LoadItems(with: request,predicate: titlepredicate)
+          }
+               tableView.reloadData()
+    }
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String)
+    {
+//        searchBar.text=selectedCatego
+
     }
 }
