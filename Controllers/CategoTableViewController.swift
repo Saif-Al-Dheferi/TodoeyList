@@ -7,29 +7,29 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoTableViewController: UITableViewController
 {
-    let context=(UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    var Categoreis=[Cate]()
-
+    let realm=try! Realm()
+    var Categoreis:Results<Category>?
+    //-----------------------------------------
     override func viewDidLoad()
     {
         super.viewDidLoad()
-           LoadItems()
+              LoadCategory()
     }
 
 // MARK: - Table view data source
    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
         {
-            return Categoreis.count
+            return Categoreis?.count ?? 1
         }
         //============================= Setting a value to the cell method =========================
    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
         {
              let cell=tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-             cell.textLabel?.text=Categoreis[indexPath.row].name
+             cell.textLabel?.text=Categoreis?[indexPath.row].name ?? "No Category"
              return cell
         }
         //=============================  didSelectRow method  ======================================
@@ -42,25 +42,23 @@ class CategoTableViewController: UITableViewController
              let categovc = segue.destination as! ViewController
              if let indexPath=tableView.indexPathForSelectedRow
            {
-             
-               categovc.selectedCatego = Categoreis[indexPath.row]
+
+               categovc.selectedCatego = Categoreis?[indexPath.row]
            }
           
       }
-    
-    
+
  @IBAction func addButton(_ sender: UIBarButtonItem)
     {
         var textField = UITextField()
-               //------------------------------------ Alert ------------------------------------------
+//------------------------------------ Alert ------------------------------------------
                let alert=UIAlertController(title: " صنف جديد ", message: "", preferredStyle:.alert)
                let action = UIAlertAction(title: "اضافة", style: .default)
                {
                    (action) in
-                     let newItem=Cate(context: self.context)
-                     newItem.name=textField.text!
-                     self.Categoreis.append(newItem)
-                     self.SaveItems()
+                     let newCategory=Category()
+                     newCategory.name=textField.text!
+                     self.Save(Categoreis: newCategory)
                      self.tableView.reloadData()
                }
                      alert.addTextField
@@ -72,12 +70,15 @@ class CategoTableViewController: UITableViewController
                      alert.addAction(action)
                      present(alert,animated: true,completion: nil)
     }
-    
-    func SaveItems()
+    //------------------------------------------------
+    func Save(Categoreis:Category)
     {
         do
         {
-            try self.context.save()
+            try realm.write
+            {
+                realm.add(Categoreis)
+            }
         }
         catch
         {
@@ -85,15 +86,10 @@ class CategoTableViewController: UITableViewController
         }
         self.tableView.reloadData()
     }
-    func LoadItems(with request:NSFetchRequest<Cate>=Cate.fetchRequest())
+    //-----------------------------------------------
+    func LoadCategory()
     {
-        do
-        {
-        Categoreis=try context.fetch(request)
-        }
-        catch
-        {
-            print("error")
-        }
+        Categoreis=realm.objects(Category.self)
+        tableView.reloadData()
     }
 }

@@ -5,16 +5,14 @@
 //  Created by Saif Aldheferi on 4/7/20.
 //  Copyright © 2020 Saif Aldheferi. All rights reserved.
 //
-
 import UIKit
-import CoreData
+import RealmSwift
 
 class ViewController: UITableViewController
 {
-    let context=(UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-    var dataFilePath=FileManager.default.urls(for:.documentDirectory, in: .userDomainMask).first?.appendingPathComponent("items.plist")
-    var itemArray=[Item]()
-    var selectedCatego: Cate?
+    let realm=try! Realm()
+    var items:Results<Item>?
+    var selectedCatego: Category?
     {
         didSet
         {
@@ -34,26 +32,45 @@ class ViewController: UITableViewController
     //=========================================================================================
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int
     {
-        return itemArray.count
+        return items?.count ?? 1
     }
     //============================= Setting a value to the cell method =========================
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell
     {
-         let cell=tableView.dequeueReusableCell(withIdentifier: "ToDItemCell", for: indexPath)
-         cell.textLabel?.text=itemArray[indexPath.row].title
-         cell.accessoryType = itemArray[indexPath.row].done == true ? .checkmark : .none
+        let cell=tableView.dequeueReusableCell(withIdentifier: "ToDItemCell", for: indexPath)
+        if let item = items?[indexPath.row]
+        {
+            cell.textLabel?.text=item.title
+            cell.accessoryType=item.done ? .checkmark : .none
+        }
+        else
+        {
+            cell.textLabel?.text="no item"
+        }
          return cell
-    }
+        }
     //=============================  didSelectRow method  ======================================
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath)
     {
         tableView.deselectRow(at: indexPath, animated: true)
-        itemArray[indexPath.row].done = !itemArray[indexPath.row].done
-//        context.delete(itemArray[indexPath.row])
-//        itemArray.remove(at: indexPath.row)
-       
-        SaveItems()
-     }
+        
+       if let item=items?[indexPath.row]
+       {
+        do
+        {
+            try realm.write
+            {
+                item.done = !item.done
+            }
+        }
+        catch
+            {
+            print("\(error)")
+            }
+        
+       }
+        tableView.reloadData()
+    }
    //=========================================================================================
    // MARK:- -----------------------------ButtonClick ----------------------------------------
    //=========================================================================================
@@ -64,34 +81,47 @@ class ViewController: UITableViewController
         let alert=UIAlertController(title:"ادخل الفقرة الجديدة", message: "", preferredStyle:.alert)
         let action = UIAlertAction(title:"اضافة", style: .default)
         {
-            (action) in
-              let newItem=Item(context: self.context)
-              newItem.title=textField.text!
-              newItem.done=false
-              newItem.parent=self.selectedCatego
-              self.itemArray.append(newItem)
-              self.SaveItems()
-              self.tableView.reloadData()
-        }
-              alert.addTextField
-                  {
-                     (alertTextField) in
-                     alertTextField.placeholder="اضافة عنصر جديد"
-                     textField=alertTextField
-                  }
-              alert.addAction(action)
-              present(alert,animated: true,completion: nil)
-        print(itemArray)
+         (action) in
+          if let currentCategry = self.selectedCatego
+            {
+                 do
+                 {
+                    try self.realm.write
+                       {
+                           let newItem=Item()
+                           newItem.title=textField.text!
+                           currentCategry.items.append(newItem)
+                           newItem.done=false
+                       }
+                }
+                catch
+                {
+                    print("error \(error)")
+                }
+            }
+         self.tableView.reloadData()
+          }
+         alert.addTextField
+           {
+            (alertTextField) in
+            alertTextField.placeholder="اضافة عنصر جديد"
+            textField=alertTextField
+           }
+         alert.addAction(action)
+         present(alert,animated: true,completion: nil)
     }
      //=========================================================================================
     // MARK:- -----------------------Encoding Data into plist ----------------------------------
     //==========================================================================================
     
-    func SaveItems()
+    func SaveItems(itemArray:Item)
     {
         do
         {
-            try self.context.save()
+            try realm.write
+            {
+                realm.add(itemArray)
+            }
         }
         catch
         {
@@ -102,53 +132,28 @@ class ViewController: UITableViewController
     //==========================================================================================
     // MARK: - -----------------------Decoding Data from plist ---------------------------------
     //==========================================================================================
-    func LoadItems(with request:NSFetchRequest<Item>=Item.fetchRequest(), predicate : NSPredicate? = nil)
+    func LoadItems()
     {
-        let Categorypredicate = NSPredicate(format:"parent.name MATCHES %@", selectedCatego!.name!)
-        if let additionalPredicate = predicate
-        {
-             request.predicate=NSCompoundPredicate(andPredicateWithSubpredicates: [Categorypredicate,additionalPredicate])
-        }
-        else
-        {
-        request.predicate=Categorypredicate
-        }
-        do
-        {
-        itemArray=try context.fetch(request)
-        }
-        catch
-        {
-            print("error")
-        }
-
+        items = selectedCatego?.items.sorted(byKeyPath: "title", ascending: true)
+        tableView.reloadData()
     }
- 
 }
-extension ViewController:UISearchBarDelegate
+ extension ViewController:UISearchBarDelegate
   {
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-               let request:NSFetchRequest<Item>=Item.fetchRequest()
-         request.predicate = NSPredicate(format: "title CONTAINS %@", searchBar.text!)
-        let titlepredicate=NSPredicate(format: "title CONTAINS %@", searchBar.text!)
-          request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-         if searchBar.text?.count==0
-          {
-           LoadItems(with: request)
-             DispatchQueue.main.async
-                 {
-                 searchBar.resignFirstResponder()
-                 }
-          }
-          else
-          {
-            LoadItems(with: request,predicate: titlepredicate)
-          }
-               tableView.reloadData()
-    }
-    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String)
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar)
     {
-//        searchBar.text=selectedCatego
-
+         if searchBar.text?.count==0
+         {
+             LoadItems()
+            DispatchQueue.main.async
+                {
+                searchBar.resignFirstResponder()
+                }
+         }
+         else
+         {
+               items = selectedCatego?.items.filter("title CONTAINS %@", searchBar.text!)
+         }
+         tableView.reloadData()
     }
 }
